@@ -1,2 +1,10 @@
-# libxv
-A simple event-based driver library
+```
+  _     _ _
+ | |   (_) |____  ____   __
+ | |   | | '_ \ \/ /\ \ / /
+ | |___| | |_) >  <  \ V /
+ |_____|_|_.__/_/\_\  \_/
+
+ A simple event-based driver library
+```
+
