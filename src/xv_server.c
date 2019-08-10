@@ -27,16 +27,8 @@ typedef struct xv_io_thread_t xv_io_thread_t;
 typedef struct xv_listener_t xv_listener_t;
 typedef struct xv_connection_t xv_connection_t;
 
-struct xv_io_thread_t {
-    int idx;
-    pthread_t id;
-    xv_loop_t *loop;
-    xv_server_t *server;
-    xv_connection_t *connections;
-};
-
 struct xv_listener_t {
-    const char *addr;
+    char addr[ADDR_LEN];
     int port;
     int listen_fd;
     xv_io_t *listen_io;
@@ -49,10 +41,18 @@ struct xv_connection_t {
     char addr[ADDR_LEN];
     int port;
     int fd;
+    xv_listener_t *listener;
     xv_io_t *read_io;
     xv_io_t *write_io;
-    xv_listener_t *listener;
     xv_connection_t *next;
+};
+
+struct xv_io_thread_t {
+    int idx;
+    pthread_t id;
+    xv_loop_t *loop;
+    xv_server_t *server;
+    xv_connection_t *connections;
 };
 
 struct xv_server_t {
@@ -65,7 +65,23 @@ struct xv_server_t {
 
 static void on_conn_read(xv_io_t *io)
 {
-    (void)io;
+    int fd = xv_io_get_fd(io);
+    xv_connection_t *conn = (xv_connection_t *)xv_io_get_userdata(io);
+
+    // xv_buffer_t
+    //xv_read(fd, buff, size)
+    
+    xv_listen_handle_t *handle = *(conn->listener->handle);
+    if (handle->decode) {
+        //void *packet;
+        //int ret = handle->decode()
+        //if (ret == XV_OK) {
+        //} else if (ret == XV_AGAIN) {
+        //} else {
+        //    // XV_AGAIN
+        //    return;
+        //}
+    }
 }
 
 static void on_conn_write(xv_io_t *io)
@@ -79,13 +95,13 @@ static void on_new_conn(xv_io_t *io)
     xv_loop_t *loop = xv_io_get_loop(io);
 
     xv_connection_t *conn = (xv_connection_t *)xv_malloc(sizeof(xv_connection_t));
-
     int client_fd = xv_tcp_accept(listen_fd, conn->addr, sizeof(conn->addr), &conn->port);
     if (client_fd > 0) {
-        conn->fd = client_fd;
+        xv_log_debug("xv_tcp_accept new connection: %s:%d", conn->addr, conn->port);
 
-        xv_listener_t *listener = (xv_listener_t *)xv_io_get_userdata(io);
-    
+        conn->fd = client_fd;
+        conn->listener = listener;
+
         // init read io & start
         conn->read_io = xv_io_init(client_fd, XV_READ, on_conn_read);
         xv_io_set_userdata(conn->read_io, conn);
@@ -95,17 +111,23 @@ static void on_new_conn(xv_io_t *io)
         conn->write_io = xv_io_init(client_fd, XV_WRITE, on_conn_write);
         xv_io_set_userdata(conn->write_io, conn);
 
+        xv_listener_t *listener = (xv_listener_t *)xv_io_get_userdata(io);
+
         // user on_conn callback
         if (listener->handle.on_connect) {
             listener->handle.on_connect(conn);
         }
 
-        // add conn to io thread
-        conn->listener = listener;
-        xv_io_thread_t *io_thread = listener->io_thread;
-        conn->next = io_thread->connections;
-        io_thread->connections = conn;
-
+        xv_server_config_t *config = &(listener->io_thread->server->config);
+        if (config->io_thread_count == 1) {
+            // add conn to myself 
+            xv_io_thread_t *io_thread = listener->io_thread;
+            conn->next = io_thread->connections;
+            io_thread->connections = conn;
+        } else {
+            // send conn to other io thread
+            // TODO
+        }
     } else {
         xv_free(conn);
     }
@@ -151,6 +173,7 @@ xv_server_t *xv_server_init(xv_server_config_t config)
     }
     if (config.worker_thread_count == 0) {
         xv_log_error("not support worker thread now");
+        server->worker_threads = NULL;
     } else {
         server->worker_threads = NULL;
     }
@@ -169,7 +192,7 @@ int xv_server_add_listen(xv_server_t *server, const char *addr, int port, xv_lis
     }
 
     xv_listener_t *listener = (xv_listener_t *)xv_malloc(sizeof(xv_listener_t));
-    listener->addr = addr;
+    strncpy(listener->addr, addr, ADDR_LEN - 1);
     listener->port = port;
     listener->handle = handle;
     xv_io_t *listen_io = xv_io_init(listen_fd, XV_READ, on_new_conn);
