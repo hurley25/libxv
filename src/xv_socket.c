@@ -190,12 +190,13 @@ int xv_tcp_nodelay(int fd)
 int xv_read(int fd, char *buf, int count)
 {
     int nread = 0;
-
     while (nread != count) {
         int ret = read(fd, buf, count - nread);
         if (ret == -1) {
             if (errno == EINTR) {
                 continue;
+            } else if (errno == EAGAIN) {
+                break;
             }
             return ret;
         }
@@ -212,12 +213,13 @@ int xv_read(int fd, char *buf, int count)
 int xv_write(int fd, const char *buf, int count)
 {
     int nwritten = 0;
-
     while (nwritten != count) {
         int ret = write(fd, buf, count - nwritten);
         if (ret == -1) {
             if (errno == EINTR) {
                 continue;
+            } else if (errno == EAGAIN) {
+                break;
             }
             return ret;
         }

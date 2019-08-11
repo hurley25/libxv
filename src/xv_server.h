@@ -22,12 +22,12 @@ extern "C" {
 #include <stdint.h>
 
 #include "xv.h"
+#include "xv_buffer.h"
 
 #define XV_ADDR_LEN 32
 
 typedef struct xv_server_t xv_server_t;
 typedef struct xv_connection_t xv_connection_t;
-typedef struct xv_buffer_t xv_buffer_t;
 typedef struct xv_listener_t xv_listener_t;
 typedef struct xv_io_thread_t xv_io_thread_t;
 
@@ -48,11 +48,9 @@ typedef struct xv_server_handle_t {
     int (*decode)(xv_buffer_t *, void **);     // user packet decode, origin data read from `xv_buffer_t`
     int (*encode)(xv_buffer_t *, void *);      // user packet encode, write data to `xv_buffer_t`
     int (*process)(xv_message_t *);            // process request, call `xv_message_get_request()` &  `xv_message_set_response()`
-    int (*on_connect)(xv_connection_t *);      // when `accept` a new connection
-    int (*on_disconnect)(xv_connection_t *);   // when connection will disconnect
-    int (*on_send_data_done)(xv_message_t *);  // when write user packet to kernel socket buffer
     void (*packet_cleanup)(void *);            // cleanup user's packet
-    uint64_t (*get_packet_id)(void *);         // get user packet's id
+    void (*on_connect)(xv_connection_t *);      // when `accept` a new connection
+    void (*on_disconnect)(xv_connection_t *);   // when connection will disconnect
 } xv_server_handle_t;
 
 typedef struct xv_connection_t {

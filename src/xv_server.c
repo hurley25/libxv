@@ -316,7 +316,21 @@ static void on_new_connection(xv_loop_t *loop, xv_io_t *io)
     if (client_fd > 0) {
         xv_log_debug("xv_tcp_accept new connection: %s:%d", addr, port);
 
+        int ret = xv_nonblock(client_fd);
+        if (ret != XV_OK) {
+            xv_close(client_fd);
+            return;
+        }
         xv_listener_t *listener = (xv_listener_t *)xv_io_get_userdata(io);
+        xv_server_config_t *config = &(listener->io_thread->server->config);
+        if (config->tcp_nodealy) {
+            ret = xv_tcp_nodelay(client_fd);
+            if (ret != XV_OK) {
+                xv_close(client_fd);
+                return;
+            }
+        }
+
         xv_server_handle_t *handle = &listener->handle;
         xv_connection_t *conn = xv_connection_init(addr, port, client_fd, handle, on_connection_read, on_connection_write);
 
@@ -325,7 +339,6 @@ static void on_new_connection(xv_loop_t *loop, xv_io_t *io)
             handle->on_connect(conn);
         }
 
-        xv_server_config_t *config = &(listener->io_thread->server->config);
         // add conn to myself conn list or send conn to other io thread
         if (config->io_thread_count == 1) {
             xv_io_thread_t *io_thread = listener->io_thread;
@@ -393,17 +406,18 @@ xv_server_t *xv_server_init(xv_server_config_t config)
     for (int i = 0; i < config.io_thread_count; ++i) {
         server->io_threads[i] = xv_io_thread_init(i, server);
     }
-    if (config.worker_thread_count == 0) {
+    if (config.worker_thread_count > 0) {
         xv_log_error("not support worker thread now");
 
         server->worker_threads = NULL;
     } else {
         server->worker_threads = NULL;
     }
+    server->config = config;
     server->listeners = NULL;
     server->start = 0;
 
-    return NULL;
+    return server;
 }
 
 int xv_server_add_listen(xv_server_t *server, const char *addr, int port, xv_server_handle_t handle)
@@ -411,6 +425,11 @@ int xv_server_add_listen(xv_server_t *server, const char *addr, int port, xv_ser
     int listen_fd = xv_tcp_listen(addr, port, 1024);
     if (listen_fd < 0) {
         xv_log_error("listen on %s:%d failed!");
+        return XV_ERR;
+    }
+    int ret = xv_nonblock(listen_fd);
+    if (ret != XV_OK) {
+        xv_close(listen_fd);
         return XV_ERR;
     }
 
@@ -431,7 +450,7 @@ int xv_server_start(xv_server_t *server)
     }
     server->start = 1;
     for (int i = 0; i < server->config.io_thread_count; ++i) {
-        int ret = pthread_create(&server->io_threads[i]->id, NULL, io_thread_entry, server);
+        int ret = pthread_create(&server->io_threads[i]->id, NULL, io_thread_entry, server->io_threads[i]);
         if (ret != 0) {
             xv_log_errno_error("pthread_create io thread failed!");
             return XV_ERR;
@@ -502,10 +521,13 @@ void xv_server_destroy(xv_server_t *server)
     for (int i = 0; i < server->config.io_thread_count; ++i) {
         xv_io_thread_destroy(server->io_threads[i]);
     }
+    xv_free(server->io_threads);
 
     // destroy worker thread pool
     if (server->worker_threads) {
         xv_thread_pool_destroy(server->worker_threads);
     }
+
+    xv_free(server);
 }
 
