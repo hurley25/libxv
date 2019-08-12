@@ -99,6 +99,13 @@ void xv_loop_run(xv_loop_t *loop)
     }
 }
 
+void xv_loop_run_timeout(xv_loop_t *loop, int timeout_ms)
+{
+    while (loop->start) {
+        xv_loop_poll(loop, timeout_ms);
+    }
+}
+
 void xv_loop_run_once(xv_loop_t *loop)
 {
     xv_loop_poll(loop, 0);

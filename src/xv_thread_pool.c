@@ -36,7 +36,7 @@ typedef struct xv_task_t {
     void *args;
 } xv_task_t;
 
-void worker_async_cb(xv_async_t *async)
+static void worker_async_cb(xv_async_t *async)
 {
     xv_log_debug("worker thread run worker_async_cb");
 
@@ -57,7 +57,7 @@ void worker_async_cb(xv_async_t *async)
     }
 }
 
-void *worker_entry(void *args)
+static void *worker_entry(void *args)
 {
     xv_worker_thread_t *thread = (xv_worker_thread_t *)args;
     while (thread->start) {

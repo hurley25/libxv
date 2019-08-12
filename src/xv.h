@@ -27,6 +27,7 @@ typedef struct xv_loop_t xv_loop_t;
 
 xv_loop_t *xv_loop_init(int setsize);
 void xv_loop_run(xv_loop_t *loop);
+void xv_loop_run_timeout(xv_loop_t *loop, int timeout_ms);
 void xv_loop_run_once(xv_loop_t *loop);
 void xv_loop_break(xv_loop_t *loop);
 void xv_loop_destroy(xv_loop_t *loop);
