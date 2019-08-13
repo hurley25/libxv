@@ -42,7 +42,6 @@ extern xv_log_level_t xv_curr_log_level;
         xv_log_error(msg ": %s", errbuf);\
 } while(0)
 
-
 // default to stderr
 void xv_set_log_file(FILE *pf);
 int xv_set_log_filename(const char *filename);

@@ -42,16 +42,16 @@ void *async_send_fun(void *args)
     return NULL;
 }
 
-void async_cb(xv_async_t *async)
+void async_cb(xv_loop_t *loop, xv_async_t *async)
 {
-    ASSERT(xv_async_get_userdata(async) == xv_async_get_loop(async));
+    ASSERT(xv_async_get_userdata(async) == loop);
 
     static int count = 0;
     count++;
     fprintf(stderr, "No.%d %s\n", count, SEND_STR);
 
     if (count == 3) {
-        xv_loop_break(xv_async_get_loop(async));
+        xv_loop_break(loop);
     }
 }
 
@@ -78,7 +78,10 @@ int main(int argc, char *argv[])
     ret = pthread_join(id, NULL);
     CHECK(ret == 0, "pthread_join: ");
 
-    xv_async_destroy(async);
+    ret = xv_async_stop(loop, async);
+    ASSERT(ret == XV_OK);
+    ret = xv_async_destroy(async);
+    ASSERT(ret == XV_OK);
 
     xv_loop_destroy(loop);
 

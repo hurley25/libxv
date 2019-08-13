@@ -19,12 +19,11 @@
 #include <unistd.h>
 
 struct xv_io_t {
-    int start;
     int fd;
     int event;
     xv_io_cb_t cb;
-    xv_loop_t *loop;
     void *userdata;
+    int start;
 };
 
 typedef struct xv_event_io_t {
@@ -80,13 +79,13 @@ static void xv_loop_poll(xv_loop_t *loop, int timeout_ms)
         if (event & XV_READ) {
             xv_io_t *read_io = loop->events[fd].read_io;
             if (read_io && read_io->cb) {
-                read_io->cb(read_io);
+                read_io->cb(loop, read_io);
             }
         }
         if (event & XV_WRITE) {
             xv_io_t *write_io = loop->events[fd].write_io;
             if (write_io && write_io->cb) {
-                write_io->cb(write_io);
+                write_io->cb(loop, write_io);
             }
         }
     }
@@ -217,12 +216,6 @@ void *xv_io_get_userdata(xv_io_t *io)
     return io->userdata;
 }
 
-// return NULL if io not started or already stopped
-void *xv_io_get_loop(xv_io_t *io)
-{
-    return io->loop;
-}
-
 xv_io_t *xv_io_init(int fd, int event, xv_io_cb_t cb)
 {
     if (!cb) {
@@ -230,12 +223,11 @@ xv_io_t *xv_io_init(int fd, int event, xv_io_cb_t cb)
         return NULL;
     }
     xv_io_t *io = (xv_io_t *)xv_malloc(sizeof(xv_io_t));
-    io->start = 0;
     io->fd = fd;
     io->event = event;
     io->cb = cb;
-    io->loop = NULL;
     io->userdata = NULL;
+    io->start = 0;
 
     return io;
 }
@@ -249,32 +241,31 @@ int xv_io_start(xv_loop_t *loop, xv_io_t *io)
         return XV_ERR;
     }
     io->start = 1;
-    io->loop = loop;
     return xv_loop_add_event(loop, io);
 }
 
-int xv_io_stop(xv_io_t *io)
+int xv_io_stop(xv_loop_t *loop, xv_io_t *io)
 {
     xv_log_debug("io_t stop, fd: %d", io->fd);
 
     if (!io->start) {
-        xv_log_warn("xv_io_stop failed, this xv_io_t is not started!");
         return XV_ERR;
     }
-    xv_loop_t *loop = io->loop;
     io->start = 0;
-    io->loop = NULL;
     return xv_loop_del_event(loop, io);
 }
 
-void xv_io_destroy(xv_io_t *io)
+int xv_io_destroy(xv_io_t *io)
 {
     xv_log_debug("io_t destroy, fd: %d", io->fd);
 
     if (io->start) {
-        xv_io_stop(io);
+        xv_log_error("xv_io_t must stop before destroy!");  
+        return XV_ERR;
     }
     xv_free(io);
+
+    return XV_OK;
 }
 
 const char *xv_event_to_str(int event)

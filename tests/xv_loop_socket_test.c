@@ -50,7 +50,7 @@ void *client_fun(void *args)
     return NULL;
 }
 
-void on_server_read(xv_io_t *io)
+void on_server_read(xv_loop_t *loop, xv_io_t *io)
 {
     const int len = strlen(SEND_STR);
     char buf[len + 1];
@@ -68,22 +68,23 @@ void on_server_read(xv_io_t *io)
     CHECK(ret == len, "read size != write size");
 
     // break here
-    xv_loop_break(xv_io_get_loop(io));
+    xv_loop_break(loop);
 
-    // close before destroy
+    ret = xv_io_stop(loop, io);
+    ASSERT(ret == XV_OK);
+
+    ret = xv_io_destroy(io);
+    ASSERT(ret == XV_OK);
+
     xv_close(fd);
-
-    // auto stop io
-    xv_io_destroy(io);
 }
 
-void on_new_connection(xv_io_t *io)
+void on_new_connection(xv_loop_t *loop, xv_io_t *io)
 {
     char client_ip[16] = {0};
     int client_port = 0;
 
     int server_fd = xv_io_get_fd(io);
-    xv_loop_t *loop = xv_io_get_loop(io);
 
     int client_fd = xv_tcp_accept(server_fd, client_ip, sizeof(client_ip), &client_port);
 
@@ -117,8 +118,10 @@ int main(int argc, char *argv[])
     ret = pthread_join(id, NULL);
     CHECK(ret == 0, "pthread_join: ");
 
-    // io auto stop
-    xv_io_destroy(io_server);
+    ret = xv_io_stop(loop, io_server);
+    ASSERT(ret == XV_OK);
+    ret = xv_io_destroy(io_server);
+    ASSERT(ret == XV_OK);
 
     xv_loop_destroy(loop);
 

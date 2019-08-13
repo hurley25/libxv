@@ -38,3 +38,6 @@ add_executable(xv_atomic_test xv_atomic_test.c)
 target_link_libraries(xv_atomic_test xv)
 add_test(NAME xv_atomic_test COMMAND xv_atomic_test)
 
+add_executable(xv_buffer_test xv_buffer_test.c)
+target_link_libraries(xv_buffer_test xv)
+add_test(NAME xv_buffer_test COMMAND xv_buffer_test)

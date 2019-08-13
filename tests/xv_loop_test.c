@@ -20,14 +20,14 @@
 
 #define SEND_STR "Hello libxv!"
 
-void write_callback(xv_io_t *io)
+void write_callback(xv_loop_t *loop, xv_io_t *io)
 {
-    ASSERT(xv_io_get_userdata(io) == xv_io_get_loop(io));
+    ASSERT(xv_io_get_userdata(io) == loop);
 
     write(STDOUT_FILENO, SEND_STR, strlen(SEND_STR));
 
     // break here
-    xv_loop_break(xv_io_get_loop(io));
+    xv_loop_break(loop);
 }
 
 int main(int argc, char *argv[])
@@ -46,8 +46,10 @@ int main(int argc, char *argv[])
     // blockiong here
     xv_loop_run(loop);
 
-    // io auto stop
-    xv_io_destroy(io_write);
+    ret = xv_io_stop(loop, io_write);
+    ASSERT(ret == XV_OK);
+    ret = xv_io_destroy(io_write);
+    ASSERT(ret == XV_OK);
 
     xv_loop_destroy(loop);
 

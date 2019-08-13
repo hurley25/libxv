@@ -36,7 +36,7 @@ typedef struct xv_task_t {
     void *args;
 } xv_task_t;
 
-static void worker_async_cb(xv_async_t *async)
+static void worker_async_cb(xv_loop_t *loop, xv_async_t *async)
 {
     xv_log_debug("worker thread run worker_async_cb");
 
@@ -53,7 +53,7 @@ static void worker_async_cb(xv_async_t *async)
     }
     if (!thread->start) {
         xv_log_debug("worker thread stopped, break loop");
-        xv_loop_break(xv_async_get_loop(async));
+        xv_loop_break(loop);
     }
 }
 
@@ -94,6 +94,7 @@ void xv_worker_thread_destroy(xv_worker_thread_t *thread)
         xv_log_errno_error("pthread_join");
     }
 
+    xv_async_stop(thread->loop, thread->async);
     xv_async_destroy(thread->async);
     xv_loop_destroy(thread->loop);
     xv_concurrent_queue_destroy(thread->task_queue, xv_free);

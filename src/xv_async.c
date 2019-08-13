@@ -48,13 +48,7 @@ void *xv_async_get_userdata(xv_async_t *async)
     return async->userdata;
 }
 
-// return NULL if async not started or already stopped
-void *xv_async_get_loop(xv_async_t *async)
-{
-    return xv_io_get_loop(async->read_io);
-}
-
-static void xv_async_cb(xv_io_t *io)
+static void xv_async_cb(xv_loop_t *loop, xv_io_t *io)
 {
 #ifdef __linux__
     eventfd_t num = 0;
@@ -70,7 +64,7 @@ static void xv_async_cb(xv_io_t *io)
 
     xv_async_t *async = (xv_async_t *)xv_io_get_userdata(io);
     if (async->cb) {
-        async->cb(async);
+        async->cb(loop, async);
     }
 }
 
@@ -114,11 +108,11 @@ int xv_async_start(xv_loop_t *loop, xv_async_t *async)
     return xv_io_start(loop, async->read_io);
 }
 
-int xv_async_stop(xv_async_t *async)
+int xv_async_stop(xv_loop_t *loop, xv_async_t *async)
 {
     xv_log_debug("async_t stop, evfd: %d", async->evfd);
 
-    return xv_io_stop(async->read_io);
+    return xv_io_stop(loop, async->read_io);
 }
 
 int xv_async_send(xv_async_t *async)
@@ -138,17 +132,22 @@ int xv_async_send(xv_async_t *async)
     return XV_OK;
 }
 
-void xv_async_destroy(xv_async_t *async)
+int xv_async_destroy(xv_async_t *async)
 {
     xv_log_debug("async_t destroy, evfd: %d", async->evfd);
+    int ret = xv_io_destroy(async->read_io);
+    if (ret != XV_OK) {
+        xv_log_error("async_t destroy failed!");
+        return ret;
+    }
 
 #ifdef __linux__
     close(async->evfd);
 #else
     // TODO
 #endif
-
-    xv_io_destroy(async->read_io);
     xv_free(async);
+
+    return XV_OK;
 }
 

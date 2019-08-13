@@ -36,70 +36,60 @@ void xv_loop_destroy(xv_loop_t *loop);
 // xv_io_t
 // ----------------------------------------------------------------------------------------
 typedef struct xv_io_t xv_io_t;
-typedef void (*xv_io_cb_t)(xv_io_t *);
+typedef void (*xv_io_cb_t)(xv_loop_t *loop, xv_io_t *);
 
 int xv_io_get_fd(xv_io_t *io);
 
 void xv_io_set_userdata(xv_io_t *io, void *data);
 void *xv_io_get_userdata(xv_io_t *io);
 
-// return NULL if io not started or already stopped
-void *xv_io_get_loop(xv_io_t *io);
-
 xv_io_t *xv_io_init(int fd, int event, xv_io_cb_t cb);
 int xv_io_start(xv_loop_t *loop, xv_io_t *io);
-int xv_io_stop(xv_io_t *io);
-void xv_io_destroy(xv_io_t *io);
+int xv_io_stop(xv_loop_t *loop, xv_io_t *io);
+int xv_io_destroy(xv_io_t *io);
 
 // ----------------------------------------------------------------------------------------
 // xv_async_t
 // ----------------------------------------------------------------------------------------
 typedef struct xv_async_t xv_async_t;
-typedef void (*xv_async_cb_t)(xv_async_t *);
+typedef void (*xv_async_cb_t)(xv_loop_t *loop, xv_async_t *);
 
 void xv_async_set_userdata(xv_async_t *async, void *data);
 void *xv_async_get_userdata(xv_async_t *async);
 
-// return NULL if async not started or already stopped
-void *xv_async_get_loop(xv_async_t *async);
-
 xv_async_t *xv_async_init(xv_async_cb_t cb);
 int xv_async_start(xv_loop_t *loop, xv_async_t *async);
+int xv_async_stop(xv_loop_t *loop, xv_async_t *async);
+int xv_async_destroy(xv_async_t *async);
 int xv_async_send(xv_async_t *async);
-int xv_async_stop(xv_async_t *async);
-void xv_async_destroy(xv_async_t *async);
 
 // ----------------------------------------------------------------------------------------
 // xv_timer_t
 // ----------------------------------------------------------------------------------------
 typedef struct xv_timer_t xv_timer_t;
+typedef void (*xv_timer_cb_t)(xv_loop_t *loop, xv_timer_t *);
 
 void xv_timer_set_userdata(xv_timer_t *timer, void *data);
 void *xv_timer_get_userdata(xv_timer_t *timer);
 
-// return NULL if io not started or already stopped
-void *xv_timer_get_loop(xv_timer_t *timer);
-
 xv_timer_t *xv_timer_init();
 int xv_timer_start(xv_loop_t *loop, xv_timer_t *timer);
 int xv_timer_stop(xv_loop_t *loop, xv_timer_t *timer);
-void xv_timer_destroy(xv_timer_t *timer);
+int xv_timer_destroy(xv_timer_t *timer);
 
 // ----------------------------------------------------------------------------------------
 // xv_signal_t
 // ----------------------------------------------------------------------------------------
 typedef struct xv_signal_t xv_signal_t;
+typedef void (*xv_signal_cb_t)(xv_loop_t *loop, xv_signal_t *);
 
 void xv_signal_set_userdata(xv_signal_t *signal, void *data);
 void *xv_signal_get_userdata(xv_signal_t *signal);
 
-// return NULL if io not started or already stopped
-void *xv_signal_get_loop(xv_signal_t *signal);
-
 xv_signal_t *xv_signal_init();
 int xv_signal_start(xv_loop_t *loop, xv_signal_t *signal);
-int xv_signal_stop(xv_signal_t *signal);
-void xv_signal_destroy(xv_signal_t *signal);
+int xv_signal_stop(xv_loop_t *loop, xv_signal_t *signal);
+int xv_signal_destroy(xv_signal_t *signal);
 
 #ifdef __cplusplus
 }

@@ -84,6 +84,7 @@ static int xv_poller_modify_event(xv_poller_data_t *data, int fd, int mask, int 
 
     int ret = epoll_ctl(data->epfd, op, fd, &event);
     if (ret != 0) {
+        xv_log_errno_error("epoll_ctl");
         return XV_ERR;
     }
 
