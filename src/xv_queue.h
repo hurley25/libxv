@@ -20,13 +20,15 @@
 extern "C" {
 #endif
 
+typedef void (*xv_queue_data_destroy_cb_t)(void *);
+
 // ----------------------------------------------------------------------------------------
 // xv_queue_t
 // ----------------------------------------------------------------------------------------
 typedef struct xv_queue_t xv_queue_t;
 
 xv_queue_t *xv_queue_init(void);
-void xv_queue_destroy(xv_queue_t *queue, void (*data_destroy)(void *));
+void xv_queue_destroy(xv_queue_t *queue, xv_queue_data_destroy_cb_t destroy);
 void xv_queue_push(xv_queue_t *queue, void *data);
 void *xv_queue_pop(xv_queue_t *queue);
 int xv_queue_size(xv_queue_t *queue);
@@ -37,7 +39,7 @@ int xv_queue_size(xv_queue_t *queue);
 typedef struct xv_concurrent_queue_t xv_concurrent_queue_t;
 
 xv_concurrent_queue_t *xv_concurrent_queue_init(void);
-void xv_concurrent_queue_destroy(xv_concurrent_queue_t *queue, void (*data_destroy)(void *));
+void xv_concurrent_queue_destroy(xv_concurrent_queue_t *queue, xv_queue_data_destroy_cb_t destroy);
 void xv_concurrent_queue_push(xv_concurrent_queue_t *queue, void *data);
 void *xv_concurrent_queue_pop(xv_concurrent_queue_t *queue);
 int xv_concurrent_queue_size(xv_concurrent_queue_t *queue);

@@ -44,4 +44,7 @@ add_test(NAME xv_buffer_test COMMAND xv_buffer_test)
 
 add_executable(xv_server_test xv_server_test.c)
 target_link_libraries(xv_server_test xv)
+add_test(NAME xv_server_test COMMAND xv_server_test)
 
+add_executable(xv_server_room_test xv_server_room_test.c)
+target_link_libraries(xv_server_room_test xv)

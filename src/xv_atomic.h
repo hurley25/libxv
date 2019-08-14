@@ -41,7 +41,17 @@ static inline int xv_atomic_add(xv_atomic_t *atomic, int value)
 
 static inline int xv_atomic_sub(xv_atomic_t *atomic, int value)
 {
-    return __sync_sub_and_fetch(&atomic->counter, value);;
+    return __sync_sub_and_fetch(&atomic->counter, value);
+}
+
+static inline int xv_atomic_incr(xv_atomic_t *atomic)
+{
+    return xv_atomic_add(atomic, 1);
+}
+
+static inline int xv_atomic_decr(xv_atomic_t *atomic)
+{
+    return xv_atomic_sub(atomic, 1);
 }
 
 #ifdef __cplusplus

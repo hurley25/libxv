@@ -48,7 +48,7 @@ void *xv_async_get_userdata(xv_async_t *async)
     return async->userdata;
 }
 
-static void xv_async_cb(xv_loop_t *loop, xv_io_t *io)
+static void common_async_cb(xv_loop_t *loop, xv_io_t *io)
 {
 #ifdef __linux__
     eventfd_t num = 0;
@@ -89,7 +89,7 @@ xv_async_t *xv_async_init(xv_async_cb_t cb)
     xv_log_debug("async init create eventfd is %d", evfd);
 
     async->evfd = evfd;
-    async->read_io = xv_io_init(async->evfd, XV_READ, xv_async_cb);
+    async->read_io = xv_io_init(async->evfd, XV_READ, common_async_cb);
 #else
     // TODO
 #endif

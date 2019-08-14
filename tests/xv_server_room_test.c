@@ -5,7 +5,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Version: 1.0: xv_server_test.c 08/13/2019 $
+ * Version: 1.0: xv_server_room_test.c 08/14/2019 $
  *
  * Authors:
  *   hurley25 <liuhuan1992@gmail.com>
@@ -22,52 +22,14 @@
 #include "xv_server.h"
 #include "xv_socket.h"
 
-#define SEND_STR "hello xv!"
 #define TEST_PORT 12345
-#define TEST_THREAD_COUNT 4
 #define TEST_COUNT 10
 
-void connect_once()
-{
-    const char *str = SEND_STR;
-    int fd = xv_tcp_connect("127.0.0.1", TEST_PORT);
-    CHECK(fd > 0, "xv_tcp_connect: ");
+#define MAX_CONN 100
 
-    const int len = strlen(str);
-    for (int i = 0; i < len; ++i) {
-            int ret = xv_write(fd, str + i, 1);
-            CHECK(ret == 1, "write: ");
-        }
-
-    char buf[len + 1];
-    int ret = xv_read(fd, buf, len);
-    CHECK(ret > 0, "read: ");
-    CHECK(ret == len, "read size != write size");
-
-    buf[len] = '\0';
-    fprintf(stderr, "%s\n", buf);
-
-    CHECK(memcmp(str, buf, ret) == 0, "read data != write data");
-
-    xv_close(fd);
-}
-
-void *client_fun(void *args)
-{
-    int idx = *(int *)args;
-    xv_free(args);
-
-    for (int i = 0; i < TEST_COUNT; ++i) {
-        connect_once();
-    }
-
-    if (idx == 0) {
-        usleep(100000);
-        kill(getpid(), SIGINT);
-    }
-
-    return NULL;
-}
+// just for demo test
+xv_connection_t *conn_array[MAX_CONN];
+pthread_mutex_t mutex;
 
 typedef struct packet_t {
     int len;
@@ -91,11 +53,18 @@ int decode(xv_buffer_t *buffer, void **request)
 int process(xv_message_t *message)
 {
     packet_t *request = (packet_t *)xv_message_get_request(message);
-    packet_t *response = (packet_t *)xv_malloc(sizeof(int) + request->len);
-    memcpy(response->buf, request->buf, request->len);
-    response->len = request->len;
 
-    xv_message_set_response(message, response);
+    for (int i = 0; i < MAX_CONN; ++i) {
+        pthread_mutex_lock(&mutex);
+        if (conn_array[i]) {
+            packet_t *response = (packet_t *)xv_malloc(sizeof(int) + request->len);
+            memcpy(response->buf, request->buf, request->len);
+            response->len = request->len;
+
+            xv_server_send_message(conn_array[i], response);
+        }
+        pthread_mutex_unlock(&mutex);
+    }
 
     return XV_OK;
 }
@@ -116,11 +85,32 @@ void packet_cleanup(void *packet)
 void on_connect(xv_connection_t *conn)
 {
     fprintf(stderr, "new connection: %s:%d\n", xv_connection_get_addr(conn), xv_connection_get_port(conn));
+
+    int fd = xv_connection_get_fd(conn);
+    if (fd > MAX_CONN) {
+        fprintf(stderr, "MAX_CONN to small, fd is %d, exit", fd);
+        exit(-1);
+    }
+
+    pthread_mutex_lock(&mutex);
+
+    xv_connection_incr_ref(conn);
+    conn_array[fd] = conn;
+
+    pthread_mutex_unlock(&mutex);
 }
 
 void on_disconnect(xv_connection_t *conn)
 {
     fprintf(stderr, "close connection: %s:%d\n", xv_connection_get_addr(conn), xv_connection_get_port(conn));
+
+    int fd = xv_connection_get_fd(conn);
+    pthread_mutex_lock(&mutex);
+
+    conn_array[fd] = NULL;
+    xv_connection_decr_ref(conn);
+
+    pthread_mutex_unlock(&mutex);
 }
 
 xv_server_t *server = NULL;
@@ -141,6 +131,8 @@ int main(int argc, char *argv[])
 
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, handle_sigint);
+
+    pthread_mutex_init(&mutex, NULL);
 
     xv_server_handle_t handle;
     bzero(&handle, sizeof(handle));
@@ -165,23 +157,12 @@ int main(int argc, char *argv[])
     ret = xv_server_start(server);
     ASSERT(ret == XV_OK);
 
-    pthread_t ids[TEST_THREAD_COUNT];
-    for (int i = 0; i < TEST_THREAD_COUNT; ++i) {
-        int *pi = (int *)xv_malloc(sizeof(int));
-        *pi = i;
-        ret = pthread_create(&ids[i], NULL, client_fun, pi);
-        CHECK(ret == 0, "pthread_create: ");
-    }
-
     ret = xv_server_run(server);
     ASSERT(ret == XV_OK);
 
-    for (int i = 0; i < TEST_THREAD_COUNT; ++i) {
-        ret = pthread_join(ids[i], NULL);
-        CHECK(ret == 0, "pthread_create: ");
-    }
-
     xv_server_destroy(server);
+
+    pthread_mutex_destroy(&mutex);
 
     return EXIT_SUCCESS;
 }

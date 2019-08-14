@@ -120,8 +120,6 @@ int xv_poller_del_event(xv_poller_data_t *data, int fd, int old_event, int event
 
 int xv_poller_poll(xv_poller_data_t *data, xv_fired_event_t *fired_events, int timeout_ms)
 {
-    xv_log_debug("will call epoll_wait, timeout_ms: %d", timeout_ms);
-
     int count = epoll_wait(data->epfd, data->events, data->setsize, timeout_ms);
     for (int i = 0; i < count; ++i) {
         // set fired fd
@@ -150,8 +148,6 @@ int xv_poller_poll(xv_poller_data_t *data, xv_fired_event_t *fired_events, int t
             xv_log_errno_error("epoll_wait failed");
         }
     }
-
-    xv_log_debug("epoll_wait return: %d", count);
 
     return count;
 }

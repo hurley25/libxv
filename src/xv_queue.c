@@ -39,13 +39,13 @@ xv_queue_t *xv_queue_init(void)
     return queue;
 }
 
-void xv_queue_destroy(xv_queue_t *queue, void (*data_destroy)(void *))
+void xv_queue_destroy(xv_queue_t *queue, xv_queue_data_destroy_cb_t destroy)
 {
     xv_node_t *node = queue->head;
     while (node != NULL) {
         xv_node_t *tmp = node->next;
-        if (data_destroy) {
-            data_destroy(node->data);
+        if (destroy) {
+            destroy(node->data);
         }
         xv_free(node);
         node = tmp;
@@ -107,9 +107,9 @@ xv_concurrent_queue_t *xv_concurrent_queue_init(void)
     return queue;
 }
 
-void xv_concurrent_queue_destroy(xv_concurrent_queue_t *queue, void (*data_destroy)(void *))
+void xv_concurrent_queue_destroy(xv_concurrent_queue_t *queue, xv_queue_data_destroy_cb_t destroy)
 {
-    xv_queue_destroy(queue->queue, data_destroy);
+    xv_queue_destroy(queue->queue, destroy);
     pthread_mutex_destroy(&queue->mutex);
     xv_free(queue);
 }

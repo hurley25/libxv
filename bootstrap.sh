@@ -4,12 +4,12 @@ set -e
 
 build_all()
 {
-    rm -rf build && mkdir build && cd build && cmake .. && make -j
+    rm -rf build && mkdir build && cd build && cmake .. && make -j && cd ..
 }
 
 run_tests()
 {
-    cd build && make test
+    cd build && make test && cd ..
 }
 
 clean_all()
@@ -23,6 +23,8 @@ if [ $# == 1 ]; then
     elif [ $1 = "build" ]; then
         build_all
     elif [ $1 = "test" ]; then
+        clean_all
+        build_all
         run_tests
     fi
     exit 0
