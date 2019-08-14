@@ -5,7 +5,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Version: 1.0: xv_thread_pool.h 08/11/2019 $
+ * Version: 1.0: xv_th_pool.h 08/11/2019 $
  *
  * Authors:
  *   hurley25 <liuhuan1992@gmail.com>

@@ -5,13 +5,13 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Version: 1.0: xv_thread_pool.c 08/11/2019 $
+ * Version: 1.0: xv_th_pool.c 08/11/2019 $
  *
  * Authors:
  *   hurley25 <liuhuan1992@gmail.com>
  */
 
-#include "xv_thread_pool.h"
+#include "xv_th_pool.h"
 
 #include <stdlib.h>
 #include <pthread.h>
@@ -64,6 +64,7 @@ static void *worker_entry(void *args)
         xv_log_debug("thread->start is %d, will call xv_loop_run", thread->start);
         xv_loop_run(thread->loop);
     }
+    xv_log_debug("loop break, worker thread exit");
 
     return NULL;
 }
@@ -107,6 +108,9 @@ int xv_worker_thread_start(xv_worker_thread_t *thread)
         xv_log_warn("worker thread already started!");
         return XV_ERR;
     }
+    thread->start = 1;
+    xv_memory_barriers();
+
     int ret = xv_async_start(thread->loop, thread->async);
     if (ret != XV_OK) {
         xv_log_error("worker thread xv_async_start failed!");
@@ -117,7 +121,6 @@ int xv_worker_thread_start(xv_worker_thread_t *thread)
         xv_log_errno_error("pthread_create");
         return XV_ERR;
     }
-    thread->start = 1;
 
     xv_log_debug("worker thread start");
 
@@ -215,7 +218,7 @@ int xv_thread_pool_stop(xv_thread_pool_t *pool)
 int xv_thread_pool_push_task(xv_thread_pool_t *pool, void (*cb)(void *), void *args, int hashcode)
 {
     int index = hashcode % pool->thread_count;
-    xv_log_debug("task push to worker thread index: %d", index);
+    xv_log_debug("task push to worker thread index: %d, pool->thread_count: %d", index, pool->thread_count);
     return xv_worker_thread_push_task(pool->threads[index], cb, args);
 }
 

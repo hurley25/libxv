@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 #include "xv_test.h"
-#include "xv_thread_pool.h"
+#include "xv_th_pool.h"
 
 void sum(void *args) {
     // disable gcc warning

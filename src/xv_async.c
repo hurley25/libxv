@@ -86,7 +86,7 @@ xv_async_t *xv_async_init(xv_async_cb_t cb)
         return NULL;
     }
 
-    xv_log_debug("async init create eventfd is %d", evfd);
+    xv_log_debug("async create, eventfd: %d", evfd);
 
     async->evfd = evfd;
     async->read_io = xv_io_init(async->evfd, XV_READ, common_async_cb);
@@ -103,26 +103,26 @@ xv_async_t *xv_async_init(xv_async_cb_t cb)
 
 int xv_async_start(xv_loop_t *loop, xv_async_t *async)
 {
-    xv_log_debug("async_t start, evfd: %d", async->evfd);
+    xv_log_debug("async_t start, evendtfd: %d", async->evfd);
 
     return xv_io_start(loop, async->read_io);
 }
 
 int xv_async_stop(xv_loop_t *loop, xv_async_t *async)
 {
-    xv_log_debug("async_t stop, evfd: %d", async->evfd);
+    xv_log_debug("async_t stop, evendtfd: %d", async->evfd);
 
     return xv_io_stop(loop, async->read_io);
 }
 
 int xv_async_send(xv_async_t *async)
 {
-    xv_log_debug("eventfd_write to xv_async_t, evfd: %d", async->evfd);
+    xv_log_debug("eventfd_write to xv_async_t, evendtfd: %d", async->evfd);
 
 #ifdef __linux__
     eventfd_t num = 1;
     if (eventfd_write(async->evfd, num) < 0) {
-        xv_log_errno_error("eventfd_write failed");
+        xv_log_errno_error("eventfd_write failed!");
         return XV_ERR;
     }
 #else
@@ -134,7 +134,7 @@ int xv_async_send(xv_async_t *async)
 
 int xv_async_destroy(xv_async_t *async)
 {
-    xv_log_debug("async_t destroy, evfd: %d", async->evfd);
+    xv_log_debug("async_t destroy, evendtfd: %d", async->evfd);
     int ret = xv_io_destroy(async->read_io);
     if (ret != XV_OK) {
         xv_log_error("async_t destroy failed!");
