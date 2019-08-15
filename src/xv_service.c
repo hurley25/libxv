@@ -122,7 +122,7 @@ struct xv_listener_t {
     int port;                      // listen port
     int listen_fd;
     xv_io_t *listen_io;            // listen_fd readable cb
-    xv_service_handle_t handle;     // user cb handle
+    xv_service_handle_t handle;    // user cb handle
     xv_io_thread_t *io_thread;     // which io thread call `xv_io_start`
 
     xv_listener_t *next;
@@ -238,6 +238,7 @@ static void io_thread_add_conn_cb(xv_loop_t *loop, xv_async_t *async)
 {
     xv_io_thread_t *io_thread = (xv_io_thread_t *)xv_async_get_userdata(async);
 
+    // io thread add new connection
     while (xv_concurrent_queue_size(io_thread->conn_queue) > 0) {
         xv_connection_t *conn = xv_concurrent_queue_pop(io_thread->conn_queue);
         if (conn) {
@@ -260,6 +261,7 @@ static void io_thread_return_message_cb(xv_loop_t *loop, xv_async_t *async)
 {
     xv_io_thread_t *io_thread = (xv_io_thread_t *)xv_async_get_userdata(async);
 
+    // io thread process all message
     while (xv_concurrent_queue_size(io_thread->message_queue) > 0) {
         xv_message_t *message = xv_concurrent_queue_pop(io_thread->message_queue);
         if (message) {
@@ -347,6 +349,7 @@ static void xv_connection_close(xv_connection_t *conn)
     }
     // some xv_message_t ref to this xv_connection_t, just return
     if (xv_atomic_get(&conn->ref_count) > 1) {
+        xv_log_debug("connection ref_count is %d, cannot drop it, return", xv_atomic_get(&conn->ref_count));
         return;
     }
     xv_service_del_connection(conn->io_thread->service, conn);
@@ -364,7 +367,7 @@ int xv_service_send_message(xv_connection_t *conn, void *package)
         return XV_ERR;
     }
     xv_message_t *message = xv_message_init(conn);
-    xv_message_set_response(message, package);  // set response, why?  use response
+    xv_message_set_response(message, package);  // set response, ignore request
 
     // push message to io thread
     xv_io_thread_t *io_thread = conn->io_thread;
@@ -397,21 +400,27 @@ static void thread_pool_task_cb(void *args)
 static void process_message(xv_loop_t *loop, xv_message_t *message, xv_connection_t *conn, xv_service_handle_t *handle)
 {
     void *response = xv_message_get_response(message);
-    if (response && handle->encode) {
-        handle->encode(conn->write_buffer, response);
-        int buffer_size = xv_buffer_readable_size(conn->write_buffer);
-        if (buffer_size > 0) {
-            int nwritten = xv_write(conn->fd, xv_buffer_read_begin(conn->write_buffer), buffer_size);
-            if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN)) {
-                xv_connection_close(conn);
-            }
-            // incr buffer index
-            xv_buffer_incr_read_index(conn->write_buffer, nwritten);
-            if (nwritten != buffer_size) {
-                if (conn->status == XV_CONN_OPEN) {
-                    // unhappy, kernel socket buffer is full, start write event
-                    xv_io_start(loop, conn->write_io);
-                }
+    if (!response || !handle->encode) {
+        xv_log_debug("response: %p, handle->encode: %p, cannot process message, return", response, handle->encode);
+        return;
+    }
+    handle->encode(conn->write_buffer, response);
+    int want_write_size = xv_buffer_readable_size(conn->write_buffer);
+    if (want_write_size > 0) {
+        int nwritten = xv_write(conn->fd, xv_buffer_read_begin(conn->write_buffer), want_write_size);
+        if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN)) {
+            xv_log_errno_error("xv_write return failed, close connection now, error");
+
+            xv_connection_close(conn);
+        }
+        // incr buffer index
+        xv_buffer_incr_read_index(conn->write_buffer, nwritten);
+
+        // check write size
+        if (nwritten < want_write_size) {
+            if (conn->status == XV_CONN_OPEN) {
+                // unhappy, kernel socket buffer is full, start write event
+                xv_io_start(loop, conn->write_io);
             }
         }
     }
@@ -421,6 +430,7 @@ static void process_read_buffer(xv_loop_t *loop, xv_connection_t *conn, xv_servi
 {
     // do user decode
     if (!handle->decode || !handle->process) {
+        xv_log_debug("handle->decode: %p, handle->process: %p, read buffer drop and return", handle->decode, handle->process);
         // clear buffer, drop data and return
         xv_buffer_clear(conn->read_buffer);
         return;
@@ -450,6 +460,7 @@ static void process_read_buffer(xv_loop_t *loop, xv_connection_t *conn, xv_servi
         // decode failed! close it
         xv_connection_close(conn);
     }
+
     // if XV_AGAIN, do nothing...
 }
 
@@ -463,6 +474,7 @@ static void on_connection_read(xv_loop_t *loop, xv_io_t *io)
         return;
     }
 
+    // max read `XV_DEFAULT_READ_SIZE` bytes
     xv_buffer_ensure_writeable_size(conn->read_buffer, XV_DEFAULT_READ_SIZE);
 
     int nread = xv_read(fd, xv_buffer_write_begin(conn->read_buffer), XV_DEFAULT_READ_SIZE);
@@ -470,6 +482,8 @@ static void on_connection_read(xv_loop_t *loop, xv_io_t *io)
         if (nread == -1 && errno == EAGAIN) {
             return;
         }
+        xv_log_errno_error("xv_read return failed, close connection now, error");
+
         // will close it
         xv_connection_close(conn);
     } else {
@@ -489,6 +503,8 @@ static void on_connection_write(xv_loop_t *loop, xv_io_t *io)
     if (buffer_size > 0) {
         int nwritten = xv_write(conn->fd, xv_buffer_read_begin(conn->write_buffer), buffer_size);
         if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN)) {
+            xv_log_errno_error("xv_write return failed, close connection now, error");
+
             xv_connection_close(conn);
         }
         // incr buffer index
@@ -527,7 +543,6 @@ static void on_new_connection(xv_loop_t *loop, xv_io_t *io)
                 return;
             }
         }
-
         xv_service_handle_t *handle = &listener->handle;
         xv_connection_t *conn = xv_connection_init(addr, port, client_fd, handle, on_connection_read, on_connection_write);
 
