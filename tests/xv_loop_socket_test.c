@@ -32,11 +32,11 @@ void *client_fun(void *args)
     CHECK(fd > 0, "xv_tcp_connect: ");
 
     const int len = strlen(str);
-    int ret = xv_write(fd, str, len);
+    int ret = xv_block_write(fd, str, len);
     CHECK(ret == len, "write: ");
 
     char buf[len + 1];
-    ret = xv_read(fd, buf, len);
+    ret = xv_block_read(fd, buf, len);
     CHECK(ret > 0, "read: ");
     CHECK(ret == len, "read size != write size");
 
@@ -58,12 +58,12 @@ void on_server_read(xv_loop_t *loop, xv_io_t *io)
     int fd = xv_io_get_fd(io);
 
     // maybe cannot read full data
-    int ret = xv_read(fd, buf, len);
+    int ret = xv_block_read(fd, buf, len);
     CHECK(ret > 0, "read: ");
     CHECK(ret == len, "read size != write size");
 
     // write back
-    ret = xv_write(fd, buf, len);
+    ret = xv_block_write(fd, buf, len);
     CHECK(ret > 0, "write: ");
     CHECK(ret == len, "read size != write size");
 

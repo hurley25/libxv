@@ -29,8 +29,8 @@ int xv_tcp_accept(int fd, char *client_ip, int client_ip_len, int *port);
 int xv_nonblock(int fd);
 int xv_tcp_nodelay(int fd);
 
-int xv_read(int fd, char *buf, int count);
-int xv_write(int fd, const char *buf, int count);
+int xv_block_read(int fd, char *buf, int count);
+int xv_block_write(int fd, const char *buf, int count);
 
 int xv_close(int fd);
 

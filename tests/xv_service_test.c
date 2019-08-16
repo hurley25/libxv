@@ -38,13 +38,13 @@ void connect_once()
 
     const int len = strlen(str);
     for (int i = 0; i < len; ++i) {
-            int ret = xv_write(fd, str + i, 1);
+            int ret = xv_block_write(fd, str + i, 1);
             usleep(1000);
             CHECK(ret == 1, "write: ");
         }
 
     char buf[len + 1];
-    ret = xv_read(fd, buf, len);
+    ret = xv_block_read(fd, buf, len);
     CHECK(ret > 0, "read: ");
     CHECK(ret == len, "read size != write size");
 

@@ -32,12 +32,12 @@ void *client_fun(void *args)
 
     const int len = strlen(str);
     for (int i = 0; i < len; ++i) {
-        int ret = xv_write(fd, str + i, 1);
+        int ret = xv_block_write(fd, str + i, 1);
         CHECK(ret == 1, "write: ");
     }
 
     char buf[len + 1];
-    int ret = xv_read(fd, buf, len);
+    int ret = xv_block_read(fd, buf, len);
     CHECK(ret > 0, "read: ");
     CHECK(ret == len, "read size != write size");
 
@@ -67,11 +67,11 @@ int main(int argc, char *argv[])
 
     const int len = strlen(SEND_STR);
     char buf[len + 1];
-    ret = xv_read(client_fd, buf, len);
+    ret = xv_block_read(client_fd, buf, len);
     CHECK(ret > 0, "read: ");
     CHECK(ret == len, "read size != write size");
 
-    ret = xv_write(client_fd, buf, len);
+    ret = xv_block_write(client_fd, buf, len);
     CHECK(ret > 0, "write: ");
     CHECK(ret == len, "read size != write size");
 

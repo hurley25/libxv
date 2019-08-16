@@ -187,7 +187,7 @@ int xv_tcp_nodelay(int fd)
     return XV_OK;
 }
 
-int xv_read(int fd, char *buf, int count)
+int xv_block_read(int fd, char *buf, int count)
 {
     int nread = 0;
     while (nread != count) {
@@ -195,10 +195,8 @@ int xv_read(int fd, char *buf, int count)
         if (ret == -1) {
             if (errno == EINTR) {
                 continue;
-            } else if (errno == EAGAIN) {
-                break;
             }
-            return ret;
+            return -1;
         }
         if (ret == 0) {
             return nread;
@@ -210,7 +208,7 @@ int xv_read(int fd, char *buf, int count)
     return nread;
 }
 
-int xv_write(int fd, const char *buf, int count)
+int xv_block_write(int fd, const char *buf, int count)
 {
     int nwritten = 0;
     while (nwritten != count) {
@@ -218,13 +216,11 @@ int xv_write(int fd, const char *buf, int count)
         if (ret == -1) {
             if (errno == EINTR) {
                 continue;
-            } else if (errno == EAGAIN) {
-                break;
             }
-            return ret;
+            return -1;
         }
         if (ret == 0) {
-            return nwritten;
+            return nwritten;;
         }
         nwritten += ret;
         buf += ret;

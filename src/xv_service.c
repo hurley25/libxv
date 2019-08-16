@@ -15,6 +15,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "xv.h"
 #include "xv_log.h"
@@ -406,22 +407,22 @@ static void process_message(xv_loop_t *loop, xv_message_t *message, xv_connectio
     }
     handle->encode(conn->write_buffer, response);
     int want_write_size = xv_buffer_readable_size(conn->write_buffer);
-    if (want_write_size > 0) {
-        int nwritten = xv_write(conn->fd, xv_buffer_read_begin(conn->write_buffer), want_write_size);
-        if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN)) {
-            xv_log_errno_error("xv_write return failed, close connection now, error");
-
-            xv_connection_close(conn);
+    if (want_write_size == 0) {
+        return;
+    }
+    int nwritten = write(conn->fd, xv_buffer_read_begin(conn->write_buffer), want_write_size);
+    if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN && errno != EINTR)) {
+        xv_log_errno_error("xv_write return failed, close connection now, error");
+        xv_connection_close(conn);
+    } else {
+        if (nwritten > 0) {
+            // incr buffer index
+            xv_buffer_incr_read_index(conn->write_buffer, nwritten);
         }
-        // incr buffer index
-        xv_buffer_incr_read_index(conn->write_buffer, nwritten);
-
         // check write size
-        if (nwritten < want_write_size) {
-            if (conn->status == XV_CONN_OPEN) {
-                // unhappy, kernel socket buffer is full, start write event
-                xv_io_start(loop, conn->write_io);
-            }
+        if (nwritten < want_write_size && conn->status == XV_CONN_OPEN) {
+            // unhappy, kernel socket buffer is full, start write event
+            xv_io_start(loop, conn->write_io);
         }
     }
 }
@@ -477,9 +478,9 @@ static void on_connection_read(xv_loop_t *loop, xv_io_t *io)
     // max read `XV_DEFAULT_READ_SIZE` bytes
     xv_buffer_ensure_writeable_size(conn->read_buffer, XV_DEFAULT_READ_SIZE);
 
-    int nread = xv_read(fd, xv_buffer_write_begin(conn->read_buffer), XV_DEFAULT_READ_SIZE);
+    int nread = read(fd, xv_buffer_write_begin(conn->read_buffer), XV_DEFAULT_READ_SIZE);
     if (nread <= 0) {
-        if (nread == -1 && errno == EAGAIN) {
+        if (nread == -1 && (errno == EAGAIN || errno == EINTR)) {
             return;
         }
         xv_log_errno_error("xv_read return failed, close connection now, error");
@@ -501,17 +502,20 @@ static void on_connection_write(xv_loop_t *loop, xv_io_t *io)
 
     int buffer_size = xv_buffer_readable_size(conn->write_buffer);
     if (buffer_size > 0) {
-        int nwritten = xv_write(conn->fd, xv_buffer_read_begin(conn->write_buffer), buffer_size);
-        if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN)) {
+        int nwritten = write(conn->fd, xv_buffer_read_begin(conn->write_buffer), buffer_size);
+        if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN && errno != EINTR)) {
             xv_log_errno_error("xv_write return failed, close connection now, error");
 
             xv_connection_close(conn);
-        }
-        // incr buffer index
-        xv_buffer_incr_read_index(conn->write_buffer, nwritten);
-        if (nwritten == buffer_size) {
-            // happy, write all data success, stop write event
-            xv_io_stop(loop, conn->write_io);
+        } else {
+            if (nwritten > 0) {
+                // incr buffer index
+                xv_buffer_incr_read_index(conn->write_buffer, nwritten);
+            }
+            if (nwritten == buffer_size) {
+                // happy, write all data success, stop write event
+                xv_io_stop(loop, conn->write_io);
+            }
         }
     } else {
         xv_io_stop(loop, conn->write_io);
