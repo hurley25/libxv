@@ -38,7 +38,7 @@ typedef struct xv_thread_pool_t xv_thread_pool_t;
 xv_thread_pool_t *xv_thread_pool_init(int thread_count);
 void xv_thread_pool_destroy(xv_thread_pool_t *pool);
 int xv_thread_pool_start(xv_thread_pool_t *pool);
-int  xv_thread_pool_stop(xv_thread_pool_t *pool);
+int xv_thread_pool_stop(xv_thread_pool_t *pool);
 int xv_thread_pool_push_task(xv_thread_pool_t *pool, void (*cb)(void *), void *args, int hashcode);
 int xv_thread_pool_task_count(xv_thread_pool_t *pool);
 
