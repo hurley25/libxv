@@ -411,7 +411,7 @@ static void process_message(xv_loop_t *loop, xv_message_t *message, xv_connectio
         return;
     }
     int nwritten = write(conn->fd, xv_buffer_read_begin(conn->write_buffer), want_write_size);
-    if (nwritten == 0 || (nwritten == -1 && errno != EAGAIN && errno != EINTR)) {
+    if (nwritten == -1 && errno != EAGAIN && errno != EINTR) {
         xv_log_errno_error("xv_write return failed, close connection now, error");
         xv_connection_close(conn);
     } else {
